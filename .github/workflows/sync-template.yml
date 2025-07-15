@@ -14,7 +14,7 @@ jobs:
       - name: Checkout upstream repository
         uses: actions/checkout@v4
         with:
-          repository: modelcontextprotocol/mcp-template
+          repository: modelcontextprotocol/servers
           ref: main
 
       - name: Check for changes in src directory
