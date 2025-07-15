@@ -35,3 +35,4 @@ jobs:
           branch: template
           dir: src
           repository: ${{ github.repository }}
+          ssh-key: ${{ secrets.DEPLOY_KEY_TEMPLATE_PUSHER }}
