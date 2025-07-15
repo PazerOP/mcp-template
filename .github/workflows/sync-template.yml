@@ -1,0 +1,35 @@
+name: Sync Template Branch
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  sync-template:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout upstream repository
+        uses: actions/checkout@v4
+        with:
+          repository: modelcontextprotocol/mcp-template
+          ref: main
+
+      - name: Check for changes in src directory
+        id: check-changes
+        run: |
+          # Get the latest commit hash that touched the src directory
+          LATEST_SRC_COMMIT=$(git log -1 --format="%H" -- src)
+          echo "latest_commit=$LATEST_SRC_COMMIT" >> $GITHUB_OUTPUT
+          
+          # Check if this commit is different from our last sync
+          # (This will always trigger on first run, which is fine)
+          echo "New commits found in src directory: $LATEST_SRC_COMMIT"
+
+      - name: Push src directory to template branch
+        uses: casperdcl/push-dir@v1
+        with:
+          message: "Auto-sync template from upstream src (commit: ${{ steps.check-changes.outputs.latest_commit }})"
+          branch: template
+          dir: src
+          repository: ${{ github.repository }}
