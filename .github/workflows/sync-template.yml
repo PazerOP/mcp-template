@@ -16,10 +16,12 @@ jobs:
         with:
           repository: modelcontextprotocol/servers
           ref: main
+          path: upstream
 
       - name: Check for changes in src directory
         id: check-changes
         run: |
+          cd upstream
           # Get the latest commit hash that touched the src directory
           LATEST_SRC_COMMIT=$(git log -1 --format="%H" -- src)
           echo "latest_commit=$LATEST_SRC_COMMIT" >> $GITHUB_OUTPUT
@@ -28,11 +30,36 @@ jobs:
           # (This will always trigger on first run, which is fine)
           echo "New commits found in src directory: $LATEST_SRC_COMMIT"
 
-      - name: Push src directory to template branch
-        uses: casperdcl/push-dir@v1
+      - name: Setup SSH key
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          message: "Auto-sync template from upstream src (commit: ${{ steps.check-changes.outputs.latest_commit }})"
-          branch: template
-          dir: src
-          repository: ${{ github.repository }}
-          ssh-key: ${{ secrets.DEPLOY_KEY_TEMPLATE_PUSHER }}
+          ssh-private-key: ${{ secrets.DEPLOY_KEY_TEMPLATE_PUSHER }}
+
+      - name: Checkout template branch from our fork
+        run: |
+          git clone git@github.com:${{ github.repository }}.git template
+          cd template
+          git checkout template || git checkout --orphan template
+
+      - name: Sync src directory to template branch
+        run: |
+          # Remove everything from template except .git
+          find template -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+          
+          # Copy everything from upstream/src to template root
+          cp -r upstream/src/* template/
+
+      - name: Commit and push changes
+        run: |
+          cd template
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Add, commit and push changes
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m "Auto-sync template from upstream src (commit: ${{ steps.check-changes.outputs.latest_commit }})"
+            git push origin template
+          else
+            echo "No changes to commit"
+          fi
